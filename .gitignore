@@ -1,0 +1,20 @@
+# Python & Virtual Environments
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# PyInstaller & macOS Release Artifacts
+build/
+dist/
+*.spec
+*.dmg
+!Archivio-macOS.dmg
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+._*

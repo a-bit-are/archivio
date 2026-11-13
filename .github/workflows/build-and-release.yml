@@ -1,0 +1,327 @@
+name: Build & Release Multi-Platform
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  # ============================================================================
+  # 1. BUILD WINDOWS (INSTALLER .EXE INNO SETUP & PORTABLE .ZIP)
+  # ============================================================================
+  build-windows:
+    name: Build Windows (Setup EXE & Portable ZIP)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Sync scanner.html
+        run: |
+          New-Item -ItemType Directory -Force -Path app/archivio/data
+          Copy-Item docs/scanner.html -Destination app/archivio/data/scanner.html
+
+      - name: Verify Windows Camera, Barcode & Native OCR Engine
+        run: |
+          $env:PYTHONPATH = "app"
+          $pyCode = @'
+          import cv2, zxingcpp, tempfile, os
+          from PIL import Image, ImageDraw
+          from archivio.remote_scanner import run_apple_vision_on_image
+
+          img = Image.new("RGB", (900, 500), "white")
+          d = ImageDraw.Draw(img)
+          d.text((80, 120), "IL NOME DELLA ROSA", fill="black", font_size=38)
+          d.text((80, 220), "UMBERTO ECO", fill="black", font_size=34)
+          tmp = os.path.join(tempfile.gettempdir(), "test_win_ocr.jpg")
+          img.save(tmp, "JPEG", quality=95)
+          res = run_apple_vision_on_image(tmp, mode="ocr")
+          print("Windows OCR lines:", res.get("lines"))
+          os.remove(tmp)
+          assert isinstance(res.get("lines"), list)
+
+          bc = zxingcpp.create_barcode("9788804668237", zxingcpp.BarcodeFormat.EAN13)
+          bc_img = zxingcpp.write_barcode_to_image(bc, scale=4)
+          tmp_bc = os.path.join(tempfile.gettempdir(), "test_win_bc.png")
+          Image.fromarray(bc_img).save(tmp_bc)
+          res_bc = run_apple_vision_on_image(tmp_bc, mode="barcode")
+          print("Windows Barcode:", res_bc.get("barcodes"))
+          os.remove(tmp_bc)
+          assert "9788804668237" in res_bc.get("barcodes", [])
+          '@
+          $pyCode = ($pyCode -split "`r?`n" | ForEach-Object { $_ -replace '^          ','' }) -join "`n"
+          $pyCode | python -
+
+      - name: Build Windows Application Bundle (PyInstaller)
+        run: |
+          python -m PyInstaller `
+            --noconfirm `
+            --clean `
+            --windowed `
+            --name "Archivio" `
+            --icon "assets/archivio.ico" `
+            --paths "app" `
+            --hidden-import "cv2" `
+            --hidden-import "zxingcpp" `
+            --collect-binaries "zxingcpp" `
+            --add-data "app/archivio/data;archivio/data" `
+            --add-data "assets/archivio.ico;assets" `
+            --add-data "assets/archivio.png;assets" `
+            app/libreria.py
+          Compress-Archive -Path dist/Archivio/* -DestinationPath dist/Archivio-Windows-Portable-x64.zip
+
+      - name: Build Windows Setup Installer (.exe) with Inno Setup 6
+        run: |
+          $ver = "${env:GITHUB_REF_NAME}" -replace '^v',''
+          if ([string]::IsNullOrWhiteSpace($ver) -or $ver -eq "${env:GITHUB_REF_NAME}") { $ver = "1.0.0" }
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+          }
+          & $iscc "/DMyAppVersion=$ver" "tools\archivio_windows_installer.iss"
+          Get-Item dist\Archivio-Windows-Setup.exe, dist\Archivio-Windows-Portable-x64.zip | Select-Object Name, Length
+
+      - name: Upload Windows Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Archivio-Windows
+          path: |
+            dist/Archivio-Windows-Setup.exe
+            dist/Archivio-Windows-Portable-x64.zip
+          if-no-files-found: error
+
+  # ============================================================================
+  # 2. BUILD LINUX (.AppImage, .deb & .tar.gz)
+  # ============================================================================
+  build-linux:
+    name: Build Linux (AppImage & DEB)
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install system libraries, Tesseract OCR & Python dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libxcb-cursor0 libxkbcommon-x11-0 libegl1 libgl1-mesa-glx \
+            desktop-file-utils libfuse2 \
+            tesseract-ocr tesseract-ocr-ita tesseract-ocr-eng
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Sync scanner.html
+        run: |
+          mkdir -p app/archivio/data
+          cp docs/scanner.html app/archivio/data/scanner.html
+
+      - name: Verify Linux Camera, Barcode & Tesseract OCR Engine
+        run: |
+          PYTHONPATH=app python - << 'PY'
+          import cv2, zxingcpp, tempfile, os
+          from PIL import Image, ImageDraw
+          from archivio.remote_scanner import run_apple_vision_on_image
+
+          img = Image.new("RGB", (900, 500), "white")
+          d = ImageDraw.Draw(img)
+          d.text((80, 120), "IL NOME DELLA ROSA", fill="black", font_size=38)
+          d.text((80, 220), "UMBERTO ECO", fill="black", font_size=34)
+          tmp = os.path.join(tempfile.gettempdir(), "test_lin_ocr.jpg")
+          img.save(tmp, "JPEG", quality=95)
+          res = run_apple_vision_on_image(tmp, mode="ocr")
+          print("Linux OCR lines:", res.get("lines"))
+          os.remove(tmp)
+          assert any("ROSA" in ln["text"].upper() for ln in res.get("lines", []))
+
+          bc = zxingcpp.create_barcode("9788804668237", zxingcpp.BarcodeFormat.EAN13)
+          bc_img = zxingcpp.write_barcode_to_image(bc, scale=4)
+          tmp_bc = os.path.join(tempfile.gettempdir(), "test_lin_bc.png")
+          Image.fromarray(bc_img).save(tmp_bc)
+          res_bc = run_apple_vision_on_image(tmp_bc, mode="barcode")
+          print("Linux Barcode:", res_bc.get("barcodes"))
+          os.remove(tmp_bc)
+          assert "9788804668237" in res_bc.get("barcodes", [])
+          PY
+
+      - name: Run Full Unit Test Suite
+        run: |
+          QT_QPA_PLATFORM=offscreen PYTHONPATH=app python -m unittest discover -s tests -p 'test_*.py'
+
+      - name: Build Linux binary with PyInstaller
+        run: |
+          python -m PyInstaller \
+            --noconfirm \
+            --clean \
+            --windowed \
+            --name "Archivio" \
+            --paths "app" \
+            --hidden-import "cv2" \
+            --hidden-import "zxingcpp" \
+            --collect-binaries "zxingcpp" \
+            --add-data "app/archivio/data:archivio/data" \
+            --add-data "assets/archivio.png:assets" \
+            app/libreria.py
+
+      - name: Package AppImage (with bundled Tesseract OCR)
+        run: |
+          mkdir -p AppDir/usr/bin AppDir/usr/lib AppDir/usr/share/tessdata
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps AppDir/usr/share/applications
+          cp -r dist/Archivio/* AppDir/usr/bin/
+          cp assets/archivio.png AppDir/usr/share/icons/hicolor/256x256/apps/archivio.png
+          cp assets/archivio.png AppDir/archivio.png
+
+          # Bundle Tesseract OCR + Italian & English models for zero-dependency cover OCR
+          if [ -x /usr/bin/tesseract ]; then
+            cp /usr/bin/tesseract AppDir/usr/bin/tesseract
+            for so in $(ldd /usr/bin/tesseract | awk '/=> \// {print $3}'); do
+              base_so="$(basename "$so")"
+              case "$base_so" in
+                libc.so*|libm.so*|libdl.so*|libpthread.so*|librt.so*|ld-linux*) ;;
+                *) cp -n "$so" AppDir/usr/lib/ || true ;;
+              esac
+            done
+            for td in /usr/share/tesseract-ocr/*/tessdata/*.traineddata; do
+              [ -f "$td" ] && cp "$td" AppDir/usr/share/tessdata/ || true
+            done
+          fi
+
+          cat << 'DESK' > AppDir/archivio.desktop
+          [Desktop Entry]
+          Name=Archivio
+          Comment=Catalogatore domestico per Libri, CD e Vinili
+          Exec=Archivio
+          Icon=archivio
+          Terminal=false
+          Type=Application
+          Categories=Utility;Database;Office;
+          DESK
+
+          cat << 'APPRUN' > AppDir/AppRun
+          #!/bin/sh
+          HERE="$(dirname "$(readlink -f "${0}")")"
+          export APPDIR="${HERE}"
+          export PATH="${HERE}/usr/bin:${PATH}"
+          export LD_LIBRARY_PATH="${HERE}/usr/lib:${HERE}/usr/bin:${LD_LIBRARY_PATH}"
+          if [ -d "${HERE}/usr/share/tessdata" ]; then
+            export TESSDATA_PREFIX="${HERE}/usr/share/tessdata"
+          fi
+          exec "${HERE}/usr/bin/Archivio" "$@"
+          APPRUN
+          chmod +x AppDir/AppRun
+
+          curl -sLo appimagetool https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool
+          sed -i 's|AI\x02|\x00\x00\x00|' appimagetool || true
+          ARCH=x86_64 ./appimagetool --appimage-extract-and-run AppDir dist/Archivio-Linux-x86_64.AppImage
+
+      - name: Package Debian / Ubuntu (.deb) & Portable Tarball
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          if [[ -z "$VER" || "$VER" == "$GITHUB_REF_NAME" ]]; then VER="1.0.0"; fi
+          DEB_DIR="deb_stage"
+          mkdir -p "$DEB_DIR/DEBIAN"
+          mkdir -p "$DEB_DIR/opt/archivio"
+          mkdir -p "$DEB_DIR/usr/bin"
+          mkdir -p "$DEB_DIR/usr/share/applications"
+          mkdir -p "$DEB_DIR/usr/share/icons/hicolor/256x256/apps"
+
+          cp -r dist/Archivio/* "$DEB_DIR/opt/archivio/"
+          ln -s /opt/archivio/Archivio "$DEB_DIR/usr/bin/archivio"
+          cp assets/archivio.png "$DEB_DIR/usr/share/icons/hicolor/256x256/apps/archivio.png"
+
+          cat << 'DESK' > "$DEB_DIR/usr/share/applications/archivio.desktop"
+          [Desktop Entry]
+          Name=Archivio
+          Comment=Catalogatore domestico per Libri, CD e Vinili
+          Exec=/usr/bin/archivio
+          Icon=archivio
+          Terminal=false
+          Type=Application
+          Categories=Utility;Database;Office;
+          DESK
+
+          cat << CTRL > "$DEB_DIR/DEBIAN/control"
+          Package: archivio
+          Version: ${VER}
+          Section: utils
+          Priority: optional
+          Architecture: amd64
+          Recommends: tesseract-ocr, tesseract-ocr-ita, tesseract-ocr-eng
+          Maintainer: Antonio Cafaro
+          Description: Archivio — Catalogatore domestico per Libri, CD e Vinili (macOS, Windows, Linux)
+          CTRL
+
+          dpkg-deb --build "$DEB_DIR" "dist/archivio_${VER}_amd64.deb"
+          tar -czf dist/Archivio-Linux-x86_64.tar.gz -C dist Archivio
+
+      - name: Upload Linux Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Archivio-Linux
+          path: |
+            dist/Archivio-Linux-x86_64.AppImage
+            dist/archivio_*_amd64.deb
+            dist/Archivio-Linux-x86_64.tar.gz
+          if-no-files-found: error
+
+  # ============================================================================
+  # 3. PUBLISH GITHUB RELEASE (Automatic on tag v*)
+  # ============================================================================
+  release:
+    name: Publish GitHub Release
+    needs: [build-windows, build-linux]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository (includes native macOS DMG)
+        uses: actions/checkout@v4
+
+      - name: Download Windows & Linux build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release_artifacts
+
+      - name: Consolidate all multi-platform binaries
+        run: |
+          mkdir -p release_dist
+          if [ -f "Archivio-macOS.dmg" ]; then
+            cp "Archivio-macOS.dmg" release_dist/
+          fi
+          find release_artifacts -type f -exec cp {} release_dist/ \;
+          ls -lh release_dist/
+
+      - name: Create Official GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          files: release_dist/*
+          generate_release_notes: false
+          body: |
+            ## Archivio — Release ${{ github.ref_name }}
+
+            Pacchetti d'installazione ufficiali pronti all'uso per **macOS**, **Windows** e **Linux** (tutti completi di **Fotocamera del computer** e **Scanner da dispositivo mobile**):
+
+            - **macOS (Apple Silicon):** `Archivio-macOS.dmg`
+            - **Windows (10 / 11 a 64 bit):** `Archivio-Windows-Setup.exe` (programma di installazione completo per Menu Start e Desktop) oppure `Archivio-Windows-Portable-x64.zip`
+            - **Linux (Ubuntu, Debian, Fedora, Arch):** `Archivio-Linux-x86_64.AppImage`, `archivio_*_amd64.deb` oppure `Archivio-Linux-x86_64.tar.gz`
