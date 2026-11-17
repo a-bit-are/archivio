@@ -1,0 +1,2198 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Archivio — Remote Scanner</title>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    :root {
+      --bg: #F7F6F2;
+      --card: #FFFFFF;
+      --surface: #EFECE6;
+      --text: #141413;
+      --muted: #706E68;
+      --border: #DFDDD6;
+      --accent: #141413;
+      --accent-hover: #2C2B29;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: "Avenir Next", "Helvetica Neue", -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding-bottom: 40px;
+    }
+    header {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 13px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      font-size: 14px;
+      letter-spacing: 2.8px;
+      text-transform: uppercase;
+      color: var(--text);
+    }
+    .status-pill {
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 4px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: #2E5E3E;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .status-pill.warn { background: #FAF3E8; border-color: #E5D0B1; color: #8A4B08; }
+    .container {
+      max-width: 540px;
+      margin: 0 auto;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 15px;
+    }
+    .section-label {
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--muted);
+      margin-bottom: 9px;
+    }
+    .seg-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 5px;
+      background: var(--surface);
+      padding: 4px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+    .seg-btn {
+      border: none;
+      background: transparent;
+      padding: 8px 6px;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      color: #4A4945;
+      cursor: pointer;
+    }
+    .seg-btn.active {
+      background: var(--accent);
+      color: #FFFFFF;
+    }
+    .mode-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 2px;
+    }
+    .tab-btn {
+      border: 1px solid var(--border);
+      background: #FAF9F6;
+      padding: 10px 8px;
+      border-radius: 5px;
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      color: #4A4945;
+      cursor: pointer;
+      text-align: center;
+    }
+    .tab-btn.active {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #FFFFFF;
+    }
+    .video-box {
+      position: relative;
+      width: 100%;
+      min-height: 210px;
+      background: #141413;
+      border-radius: 6px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #FFF;
+      margin-bottom: 10px;
+    }
+    #reader { width: 100%; }
+    .cam-controls {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 8px;
+    }
+    .zoom-group {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+    .mini-btn {
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      border-radius: 5px;
+      padding: 6px 10px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .mini-btn.active {
+      background: var(--accent);
+      color: #FFF;
+      border-color: var(--accent);
+    }
+    .btn {
+      width: 100%;
+      border: 1px solid transparent;
+      border-radius: 5px;
+      padding: 12px 16px;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-primary { background: var(--accent); color: #FFF; border-color: var(--accent); }
+    .btn-success { background: #1F4E35; color: #FFF; border-color: #1F4E35; }
+    .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+    .btn-outline { background: var(--bg); color: var(--text); border: 1px solid var(--accent); }
+    .field-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      margin-top: 8px;
+    }
+    .field-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .field-row label {
+      font-size: 10.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      color: var(--muted);
+    }
+    .field-row input {
+      width: 100%;
+      padding: 9px 11px;
+      border: 1px solid #D4D2CA;
+      border-radius: 5px;
+      font-family: inherit;
+      font-size: 14px;
+      color: var(--text);
+      background: #FFF;
+      outline: none;
+    }
+    .field-row input:focus {
+      border-color: var(--accent);
+    }
+    .field-row-2col {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 8px;
+    }
+    .edition-badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 500;
+      color: #515154;
+      background: #EFECE6;
+      border: 1px solid #DFDDD6;
+      border-radius: 4px;
+      padding: 3px 8px;
+    }
+    .alert-box {
+      padding: 10px 12px;
+      border-radius: 5px;
+      font-size: 12.5px;
+      line-height: 1.45;
+      margin-bottom: 8px;
+      display: none;
+    }
+    .alert-issn {
+      background: #FAF5EA;
+      border: 1px solid #DEC69B;
+      color: #6E470B;
+    }
+    .alert-dup {
+      background: #FAF0F0;
+      border: 1px solid #DFC0C0;
+      color: #8E2424;
+    }
+    .alert-ok {
+      background: #F1F6F2;
+      border: 1px solid #C6DBC9;
+      color: #1E5231;
+    }
+    .alert-progress {
+      background: #EFECE6;
+      border: 1px solid #141413;
+      color: #141413;
+      font-weight: 500;
+    }
+    @keyframes pulseDot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.25; }
+    }
+    .pulse-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #141413;
+      margin-right: 6px;
+      vertical-align: middle;
+      animation: pulseDot 1s infinite ease-in-out;
+    }
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 6px 0;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+    }
+    .sug-list {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      margin-top: 6px;
+    }
+    .sug-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--muted);
+      padding: 2px 2px 0 2px;
+    }
+    .sug-close {
+      border: none;
+      background: transparent;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 2px 4px;
+    }
+    .sug-item {
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 8px 10px;
+      background: #FAF9F6;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.12s;
+    }
+    .sug-item:active { background: var(--surface); border-color: var(--accent); }
+    .sug-item strong {
+      display: block;
+      font-size: 13.5px;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .sug-item span {
+      display: block;
+      font-size: 11.5px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .combo-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+      width: 100%;
+    }
+    .combo-wrap input {
+      padding-right: 34px !important;
+    }
+    .combo-btn {
+      position: absolute;
+      right: 3px;
+      top: 3px;
+      bottom: 3px;
+      width: 28px;
+      border: none;
+      background: var(--surface);
+      color: var(--text);
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .combo-btn:active { background: #DFDDD6; }
+    .dropdown-menu {
+      display: none;
+      margin-top: 4px;
+      max-height: 185px;
+      overflow-y: auto;
+      border: 1px solid var(--accent);
+      border-radius: 5px;
+      background: #FFFFFF;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+      z-index: 40;
+    }
+    .dropdown-item {
+      padding: 8px 11px;
+      font-size: 13.5px;
+      color: var(--text);
+      border-bottom: 1px solid #F2F0EA;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .dropdown-item:last-child { border-bottom: none; }
+    .dropdown-item:active, .dropdown-item.selected {
+      background: var(--surface);
+      color: var(--text);
+      font-weight: 600;
+    }
+    .dropdown-sub {
+      font-size: 11px;
+      color: var(--muted);
+      margin-left: 8px;
+    }
+    input[type="file"] { display: none; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span>ARCHIVIO</span>
+  </div>
+  <div style="display:flex; gap:6px; align-items:center;">
+    <span id="connBadge" class="status-pill">● Connesso</span>
+    <button class="mini-btn active" onclick="toggleAudio()" id="btnAudio" title="Suoni di conferma">Audio ON</button>
+    <button class="mini-btn" onclick="toggleLang()" id="btnLang">EN</button>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- 1. SELETTORE CATEGORIA E MODALITÀ RAFFICA -->
+  <div class="card">
+    <div class="section-label" id="lblCatSec">Categoria di inserimento</div>
+    <div class="seg-row">
+      <button class="seg-btn active" id="catLibri" onclick="setCategory('Libri')"><span id="txtLibri">Libri</span></button>
+      <button class="seg-btn" id="catCD" onclick="setCategory('CD')">CD</button>
+      <button class="seg-btn" id="catVinili" onclick="setCategory('Vinili')"><span id="txtVinili">Vinili</span></button>
+    </div>
+
+    <div class="toggle-row" style="margin-top:10px;">
+      <label for="chkBurst" id="lblBurst"><b>Modalità Raffica</b> (aggiungi subito senza conferma)</label>
+      <input type="checkbox" id="chkBurst" style="width:18px; height:18px; accent-color:#141413;" />
+    </div>
+
+    <div class="field-row" style="margin-top:4px;">
+      <label id="lblStickyColl">Fissa Collana / Collezione per le prossime scansioni (opz.)</label>
+      <input type="text" id="inStickyColl" placeholder="Es. Piccola Biblioteca Adelphi, DeAgostini Jazz..." />
+    </div>
+  </div>
+
+  <!-- 2. SCHEDA SCANSIONE BARCODE vs SENZA BARCODE (COPERTINA OCR) -->
+  <div class="card">
+    <div class="mode-tabs">
+      <button class="tab-btn active" id="tabBarcode" onclick="switchTab('barcode')">
+        Codice a barre (ISBN / EAN)
+      </button>
+      <button class="tab-btn" id="tabCover" onclick="switchTab('cover')">
+        Senza codice (Copertina / Titolo)
+      </button>
+    </div>
+
+    <!-- PANNELLO A: BARCODE -->
+    <div id="paneBarcode" style="margin-top:12px;">
+      <div id="liveScannerSection">
+        <div class="video-box" id="videoContainer" onclick="if(liveRunning) captureLiveBarcodeNow()">
+          <div id="reader"></div>
+          <div id="camPlaceholder" style="padding:20px; text-align:center; font-size:13px; color:#D4D2CA;">
+            Tocca <b>«Avvia Scanner Live»</b> oppure <b>«Fotografa Codice a Barre»</b> qui sotto
+          </div>
+        </div>
+
+        <button class="btn btn-primary" id="btnCaptureLive" style="display:none; margin-top:8px;" onclick="captureLiveBarcodeNow()">
+          Inquadra il codice e tocca qui per acquisire
+        </button>
+
+        <div id="scanInlineStatus" class="alert-box alert-progress" style="margin-top:8px; margin-bottom:4px;"></div>
+
+        <div class="cam-controls" id="liveCamControls">
+          <button class="mini-btn" id="btnToggleCam" onclick="toggleLiveScanner()">Avvia Scanner Live</button>
+          <div class="zoom-group">
+            <span style="font-size:11px; color:var(--muted);">Zoom:</span>
+            <button class="mini-btn" onclick="setCameraZoom(1.0)" id="z1">1x</button>
+            <button class="mini-btn active" onclick="setCameraZoom(1.5)" id="z15">1.5x</button>
+            <button class="mini-btn" onclick="setCameraZoom(2.0)" id="z2">2x</button>
+          </div>
+          <button class="mini-btn" id="btnTorch" onclick="toggleTorch()">Luce</button>
+        </div>
+      </div>
+
+      <div style="margin-top:10px; display:flex; flex-direction:column; gap:8px;">
+        <label class="btn btn-outline" for="fileBarcode">
+          <span id="txtSnapBarcode">Fotografa Codice a Barre (Antiriflesso)</span>
+        </label>
+        <input type="file" id="fileBarcode" accept="image/*" capture="environment" onchange="onPhotoSelected(event, 'barcode')" />
+
+        <div style="display:flex; gap:6px;">
+          <input type="text" id="inManualCode" inputmode="numeric" placeholder="Oppure digita codice ISBN / EAN / UPC..."
+                 style="flex:1; padding:10px 12px; border:1px solid #D4D2CA; border-radius:5px; font-family:inherit; font-size:14px; outline:none;"
+                 onkeydown="if(event.key==='Enter') submitManualCode()" />
+          <button class="mini-btn" style="padding:0 15px; background:var(--accent); color:#FFF; border-color:var(--accent);" onclick="submitManualCode()">Cerca</button>
+        </div>
+        <div id="manualInlineStatus" class="alert-box alert-progress" style="margin-top:4px; margin-bottom:0;"></div>
+      </div>
+    </div>
+
+    <!-- PANNELLO B: COPERTINA / OCR (PER LIBRI PRE-1970 E VINILI SENZA BARCODE) -->
+    <div id="paneCover" style="display:none; margin-top:12px;">
+      <p style="margin:0 0 10px 0; font-size:12.5px; line-height:1.45; color:var(--muted);" id="txtCoverHelp">
+        Ideale per <b>libri pre-1970</b>, <b>vinili d'epoca (1948–1979)</b> privi di codice a barre o edizioni da edicola con codice periodico ISSN 977:
+      </p>
+      <label class="btn btn-outline" for="fileCover" style="margin-bottom:10px;">
+        <span id="txtSnapCover">Fotografa Copertina / Frontespizio / Etichetta LP</span>
+      </label>
+      <input type="file" id="fileCover" accept="image/*" capture="environment" onchange="onPhotoSelected(event, 'ocr')" />
+
+      <div id="coverInlineStatus" class="alert-box alert-progress" style="margin-top:2px; margin-bottom:8px;"></div>
+
+      <div style="display:flex; gap:6px; margin-top:4px;">
+        <input type="text" id="inManualQuery" placeholder="Oppure digita Titolo o Autore (es. Cicerone)..."
+               autocomplete="off"
+               style="flex:1; padding:10px 12px; border:1px solid #D4D2CA; border-radius:5px; font-family:inherit; font-size:14px; outline:none;"
+               oninput="onLiveQueryInput(this.value, 'any', 'ocrCandidates')"
+               onkeydown="if(event.key==='Enter') submitManualTextSearch()" />
+        <button class="mini-btn" style="padding:0 15px; background:var(--accent); color:#FFF; border-color:var(--accent);" onclick="submitManualTextSearch()">Cerca</button>
+      </div>
+
+      <div id="ocrCandidates" class="sug-list" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- 3. ANTEPRIMA RISULTATO E PULSANTE AGGIUNGI DIRETTAMENTE DAL TELEFONO -->
+  <div class="card" id="previewCard">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <div class="section-label" id="lblPreviewSec" style="margin-bottom:0;">Anteprima & Conferma Inserimento</div>
+      <div id="editionBadge" class="edition-badge" style="display:none;"></div>
+    </div>
+
+    <div id="alertIssn" class="alert-box alert-issn"></div>
+    <div id="alertDup" class="alert-box alert-dup"></div>
+    <div id="alertOk" class="alert-box alert-ok"></div>
+
+    <div class="field-grid">
+      <div class="field-row">
+        <label id="lblTitle">Titolo</label>
+        <input type="text" id="resTitle" autocomplete="off" placeholder="Digita titolo o inquadra..."
+               oninput="onLiveQueryInput(this.value, 'title', 'fieldSuggestions')" />
+      </div>
+      <div class="field-row">
+        <label id="lblAuthor">Autore / Artista</label>
+        <input type="text" id="resAuthor" autocomplete="off" placeholder="Autore o Artista (es. Cicerone)..."
+               oninput="onLiveQueryInput(this.value, 'author', 'fieldSuggestions')" />
+      </div>
+
+      <!-- Suggerimenti compatti (max 4) quando si digita direttamente in Titolo o Autore -->
+      <div id="fieldSuggestions" class="sug-list" style="display:none; margin-top:2px; margin-bottom:4px;"></div>
+
+      <div class="field-row-2col">
+        <div class="field-row">
+          <label id="lblPub">Editore / Etichetta</label>
+          <div class="combo-wrap">
+            <input type="text" id="resPub" autocomplete="off" placeholder="Scegli o digita..."
+                   onfocus="openDropdown('pub', true)" oninput="onPubInput(this.value)" onchange="applyPublisherChanged(this.value)" />
+            <button type="button" class="combo-btn" id="btnComboPub" onclick="toggleDropdown('pub')" title="Scegli Editore / Etichetta">▾</button>
+          </div>
+        </div>
+        <div class="field-row">
+          <label id="lblYear">Anno</label>
+          <div class="combo-wrap">
+            <input type="text" id="resYear" inputmode="numeric" autocomplete="off" placeholder="Anno..."
+                   onfocus="openDropdown('year', true)" oninput="onYearInput(this.value)" onchange="applyYearChanged(this.value)" />
+            <button type="button" class="combo-btn" id="btnComboYear" onclick="toggleDropdown('year')" title="Scegli Anno">▾</button>
+          </div>
+        </div>
+      </div>
+      <div id="ddMenuPub" class="dropdown-menu"></div>
+      <div id="ddMenuYear" class="dropdown-menu"></div>
+
+      <div class="field-row">
+        <label id="lblColl">Collana / Collezione</label>
+        <div class="combo-wrap">
+          <input type="text" id="resColl" autocomplete="off" placeholder="Scegli o digita Collana / Collezione (opz.)..."
+                 onfocus="openDropdown('coll', true)" oninput="filterOpenDropdown('coll', this.value)" onchange="applyCollectionChanged(this.value)" />
+          <button type="button" class="combo-btn" id="btnComboColl" onclick="toggleDropdown('coll')" title="Scegli Collana / Collezione">▾</button>
+        </div>
+        <div id="ddMenuColl" class="dropdown-menu"></div>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:8px; margin-top:14px;">
+      <button class="btn btn-primary" style="flex:2;" onclick="confirmAddItem()" id="btnAddNow">
+        Aggiungi in Archivio
+      </button>
+      <button class="btn btn-secondary" style="flex:1;" onclick="undoLastRemote()" id="btnUndoLast" title="Annulla ultimo inserimento">
+        Annulla
+      </button>
+    </div>
+
+    <!-- Elenco titoli quando un codice ISBN promozionale (es. Feltrinelli 1+1) è condiviso da più libri -->
+    <div id="multiIsbnBox" style="display:none; margin-top:14px; border-top:1px solid var(--border); padding-top:10px;">
+      <div class="section-label" id="lblMultiIsbn">Titoli associati a questo codice ISBN (tocca il tuo libro):</div>
+      <input type="text" id="inFilterCandidates" placeholder="Filtra per parola del titolo o autore..."
+             style="width:100%; padding:8px 10px; border:1px solid #D4D2CA; border-radius:5px; font-family:inherit; font-size:13.5px; margin-bottom:6px; outline:none;"
+             oninput="filterCandidateList()" />
+      <div id="barcodeCandidates" class="sug-list" style="max-height:220px; overflow-y:auto;"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const ROOM = (params.get("room") || "DEFAULT").trim();
+let LANG = (params.get("lang") || "it").toLowerCase().startsWith("en") ? "en" : "it";
+let CURRENT_CAT = params.get("cat") || "Libri";
+let CURRENT_CODE = "";
+
+// Determina se siamo serviti direttamente dal Mac (LAN o Tunnel HTTPS) o da GitHub Pages statico
+const IS_STATIC_GHPAGES = window.location.hostname.endsWith("github.io");
+let DIRECT_API_AVAILABLE = !IS_STATIC_GHPAGES;
+
+let html5QrCode = null;
+let liveRunning = false;
+let currentZoom = 1.5;
+let torchOn = false;
+let lastScannedCode = "";
+let lastScannedTime = 0;
+
+const I18N = {
+  it: {
+    conn: "● Connesso al computer",
+    connCloud: "● Connesso via Cloud",
+    catSec: "Categoria di inserimento",
+    libri: "Libri",
+    vinili: "Vinili",
+    burst: "<b>Modalità Raffica</b> (aggiungi subito senza conferma)",
+    sticky: "Fissa Collana / Collezione per le prossime scansioni (opz.)",
+    tabBarcode: "Codice a barre (ISBN / EAN)",
+    tabCover: "Senza codice (Copertina / Titolo)",
+    startCam: "Avvia Scanner Live",
+    stopCam: "Ferma Scanner Live",
+    snapBarcode: "Fotografa Codice a Barre (Antiriflesso)",
+    snapCover: "Fotografa Copertina / Frontespizio / Etichetta LP",
+    coverHelp: "Ideale per <b>libri pre-1970</b>, <b>vinili d'epoca (1948–1979)</b> privi di codice a barre o edizioni da edicola con codice periodico ISSN 977:",
+    previewSec: "Anteprima & Conferma Inserimento",
+    title: "Titolo",
+    author: "Autore / Artista",
+    pub: "Editore / Etichetta",
+    year: "Anno",
+    coll: "Collana / Collezione",
+    addBtn: "Aggiungi in Archivio",
+    undoBtn: "Annulla",
+    searching: "Ricerca nel catalogo in corso…",
+    issnWarn: "<b>Codice Periodico da Edicola rilevato (ISSN {code}):</b> questo codice identifica la collana/rivista da edicola e non il singolo volume o disco. Fotografa la copertina col tasto OCR o digita il titolo.",
+    dupWarn: "<b>Attenzione:</b> questo titolo è già presente nel tuo archivio {cat}.",
+    addedOk: "✓ <b>Aggiunto in {cat}:</b> {title} — {author}",
+    foundOk: "✓ <b>Trovato ({src}):</b> verifica i dati o premi Aggiungi",
+    multiIsbnWarn: "<b>Codice ISBN promozionale condiviso da {n} libri diversi:</b> tocca il tuo libro nell'elenco qui sotto (oppure fotografa la copertina col tasto OCR).",
+    undoneOk: "Ultimo inserimento annullato.",
+    notFound: "Nessuna corrispondenza trovata per il codice {code}. Puoi usare la foto copertina OCR o compilare i campi."
+  },
+  en: {
+    conn: "● Connected to computer",
+    connCloud: "● Connected via Cloud",
+    catSec: "Target Category",
+    libri: "Books",
+    vinili: "Vinyls",
+    burst: "<b>Burst Mode</b> (add immediately without confirmation)",
+    sticky: "Lock Series / Collection for next scans (opt.)",
+    tabBarcode: "Barcode (ISBN / EAN)",
+    tabCover: "No Barcode (Cover / Title)",
+    startCam: "Start Live Scanner",
+    stopCam: "Stop Live Scanner",
+    snapBarcode: "Photograph Barcode (Anti-Glare)",
+    snapCover: "Photograph Cover / Title Page / LP Label",
+    coverHelp: "Ideal for <b>pre-1970 books</b>, <b>vintage vinyls (1948–1979)</b> without barcodes, or newsstand editions with ISSN 977 periodical codes:",
+    previewSec: "Preview & Confirm Entry",
+    title: "Title",
+    author: "Author / Artist",
+    pub: "Publisher / Label",
+    year: "Year",
+    coll: "Series / Collection",
+    addBtn: "Add to Archive",
+    undoBtn: "Undo",
+    searching: "Searching catalog…",
+    issnWarn: "<b>Newsstand Periodical Code detected (ISSN {code}):</b> this barcode identifies the magazine/series, not the individual book or record. Photograph the cover via OCR or type the title.",
+    dupWarn: "<b>Duplicate Notice:</b> this item is already in your {cat} archive.",
+    addedOk: "✓ <b>Added to {cat}:</b> {title} — {author}",
+    foundOk: "✓ <b>Found ({src}):</b> review or tap Add",
+    multiIsbnWarn: "<b>Promotional ISBN shared by {n} different books:</b> tap your book in the list below (or photograph the cover via OCR).",
+    undoneOk: "Last entry undone.",
+    notFound: "No match found for barcode {code}. Try Cover OCR or fill in the fields."
+  }
+};
+
+function t(k, vars={}) {
+  let s = (I18N[LANG] && I18N[LANG][k]) || I18N.it[k] || k;
+  for (const [key, val] of Object.entries(vars)) {
+    s = s.replaceAll(`{${key}}`, val);
+  }
+  return s;
+}
+
+function applyLang() {
+  document.getElementById("btnLang").textContent = LANG === "it" ? "EN" : "IT";
+  const audioBtn = document.getElementById("btnAudio");
+  if (audioBtn) {
+    audioBtn.textContent = audioEnabled ? "Audio ON" : "Audio OFF";
+    audioBtn.classList.toggle("active", audioEnabled);
+  }
+  document.getElementById("connBadge").textContent = (!IS_STATIC_GHPAGES && DIRECT_API_AVAILABLE) ? t("conn") : t("connCloud");
+  document.getElementById("lblCatSec").textContent = t("catSec");
+  document.getElementById("txtLibri").textContent = t("libri");
+  document.getElementById("txtVinili").textContent = t("vinili");
+  document.getElementById("lblBurst").innerHTML = t("burst");
+  document.getElementById("lblStickyColl").textContent = t("sticky");
+  document.getElementById("tabBarcode").textContent = t("tabBarcode");
+  document.getElementById("tabCover").textContent = t("tabCover");
+  document.getElementById("btnToggleCam").textContent = liveRunning ? t("stopCam") : t("startCam");
+  document.getElementById("txtSnapBarcode").textContent = t("snapBarcode");
+  document.getElementById("txtSnapCover").textContent = t("snapCover");
+  document.getElementById("txtCoverHelp").innerHTML = t("coverHelp");
+  document.getElementById("lblPreviewSec").textContent = t("previewSec");
+  document.getElementById("lblTitle").textContent = t("title");
+  document.getElementById("lblAuthor").textContent = t("author");
+  document.getElementById("lblPub").textContent = t("pub");
+  document.getElementById("lblYear").textContent = t("year");
+  document.getElementById("lblColl").textContent = t("coll");
+  document.getElementById("btnAddNow").textContent = t("addBtn");
+  document.getElementById("btnUndoLast").textContent = t("undoBtn");
+  updateLiveCaptureButton();
+}
+
+function toggleLang() {
+  LANG = LANG === "it" ? "en" : "it";
+  applyLang();
+}
+
+// ============================================================================
+// MOTORE AUDIO PERSISTENTE SBLOCCATO AL PRIMO TOCCO (SAFARI iOS & CHROME ANDROID)
+// ============================================================================
+let sharedAudioCtx = null;
+let audioEnabled = true;
+
+function getUnlockedAudioContext() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    if (!sharedAudioCtx || sharedAudioCtx.state === "closed") {
+      sharedAudioCtx = new Ctx();
+    }
+    if (sharedAudioCtx.state === "suspended") {
+      sharedAudioCtx.resume().catch(() => {});
+    }
+    return sharedAudioCtx;
+  } catch (e) {
+    return null;
+  }
+}
+
+for (const evName of ["touchstart", "pointerdown", "click"]) {
+  document.addEventListener(evName, () => {
+    if (audioEnabled) getUnlockedAudioContext();
+  }, { passive: true });
+}
+
+function toggleAudio() {
+  audioEnabled = !audioEnabled;
+  if (audioEnabled) {
+    getUnlockedAudioContext();
+    playStudioSound("tap");
+  }
+  applyLang();
+}
+
+function playStudioSound(kind="ok") {
+  try {
+    if (navigator.vibrate) {
+      if (kind === "tap") navigator.vibrate(25);
+      else if (kind === "ok") navigator.vibrate([55]);
+      else navigator.vibrate([85, 45, 85]);
+    }
+  } catch (e) {}
+  if (!audioEnabled) return;
+  try {
+    const ctx = getUnlockedAudioContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    if (kind === "tap") {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(640, now);
+      g.gain.setValueAtTime(0.001, now);
+      g.gain.linearRampToValueAtTime(0.09, now + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.0008, now + 0.045);
+      osc.connect(g);
+      g.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.05);
+    } else if (kind === "ok") {
+      const notes = [[660, 0.0, 0.075], [880, 0.07, 0.145]];
+      for (const [freq, startOff, endOff] of notes) {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, now + startOff);
+        g.gain.setValueAtTime(0.001, now + startOff);
+        g.gain.linearRampToValueAtTime(0.13, now + startOff + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0008, now + endOff);
+        osc.connect(g);
+        g.connect(ctx.destination);
+        osc.start(now + startOff);
+        osc.stop(now + endOff + 0.01);
+      }
+    } else {
+      const notes = [[330, 0.0, 0.09], [275, 0.10, 0.21]];
+      for (const [freq, startOff, endOff] of notes) {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq, now + startOff);
+        g.gain.setValueAtTime(0.001, now + startOff);
+        g.gain.linearRampToValueAtTime(0.12, now + startOff + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0008, now + endOff);
+        osc.connect(g);
+        g.connect(ctx.destination);
+        osc.start(now + startOff);
+        osc.stop(now + endOff + 0.01);
+      }
+    }
+  } catch (e) {}
+}
+
+function beepAndVibrate(success=true) {
+  playStudioSound(success ? "ok" : "warn");
+}
+
+function setCategory(cat, notifyMac=true) {
+  CURRENT_CAT = cat;
+  for (const c of ["Libri", "CD", "Vinili"]) {
+    document.getElementById("cat" + c).classList.toggle("active", c === cat);
+  }
+  if (typeof updateCurrentEditions === "function") updateCurrentEditions({});
+  if (typeof hideAllSuggestionBoxes === "function") hideAllSuggestionBoxes();
+  if (notifyMac) {
+    sendAction({ action: "set_category", category: cat });
+  }
+}
+
+function switchTab(mode) {
+  const isBarcode = mode === "barcode";
+  document.getElementById("tabBarcode").classList.toggle("active", isBarcode);
+  document.getElementById("tabCover").classList.toggle("active", !isBarcode);
+  document.getElementById("paneBarcode").style.display = isBarcode ? "block" : "none";
+  document.getElementById("paneCover").style.display = isBarcode ? "none" : "block";
+}
+
+function showBanner(type, html) {
+  for (const id of ["alertIssn", "alertDup", "alertOk"]) {
+    document.getElementById(id).style.display = "none";
+  }
+  if (!type || !html) return;
+  const map = { issn: "alertIssn", dup: "alertDup", ok: "alertOk" };
+  const el = document.getElementById(map[type]);
+  if (el) {
+    el.innerHTML = html;
+    el.style.display = "block";
+  }
+}
+
+// Stato immediato vicino al pulsante di acquisizione + reset campi precedenti
+let activeScanReqId = 0;
+let scanInProgress = false;
+let activeInlineBoxId = "scanInlineStatus";
+let scanTimeoutTimer = null;
+
+function setInlineScanStatus(styleKind, html, targetBoxId=null) {
+  const boxIds = ["scanInlineStatus", "manualInlineStatus", "coverInlineStatus"];
+  const chosen = targetBoxId || activeInlineBoxId || "scanInlineStatus";
+  for (const id of boxIds) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    if (id !== chosen || !html) {
+      el.style.display = "none";
+    } else {
+      el.className = "alert-box " + (
+        styleKind === "progress" ? "alert-progress" :
+        styleKind === "ok" ? "alert-ok" :
+        styleKind === "dup" ? "alert-dup" : "alert-issn"
+      );
+      el.innerHTML = html;
+      el.style.display = "block";
+    }
+  }
+}
+
+function clearPreviewFieldsForNewScan() {
+  CURRENT_CODE = "";
+  document.getElementById("resTitle").value = "";
+  document.getElementById("resAuthor").value = "";
+  document.getElementById("resPub").value = "";
+  document.getElementById("resYear").value = "";
+  const sticky = document.getElementById("inStickyColl").value.trim();
+  document.getElementById("resColl").value = sticky || "";
+  document.getElementById("multiIsbnBox").style.display = "none";
+  currentCandidateList = [];
+  hideAllSuggestionBoxes();
+  closeAllDropdowns();
+  if (typeof updateCurrentEditions === "function") updateCurrentEditions({});
+}
+
+function beginNewScan(codeLabel, originMode="live") {
+  const reqId = ++activeScanReqId;
+  scanInProgress = true;
+  if (originMode === "cover") activeInlineBoxId = "coverInlineStatus";
+  else if (originMode === "manual" && !liveRunning) activeInlineBoxId = "manualInlineStatus";
+  else activeInlineBoxId = liveRunning ? "scanInlineStatus" : "manualInlineStatus";
+
+  clearPreviewFieldsForNewScan();
+
+  const progressMsg = codeLabel
+    ? (LANG === "it"
+        ? `<span class="pulse-dot"></span>Codice <b>${escapeHtml(codeLabel)}</b> acquisito — <b>${t("searching")}</b>`
+        : `<span class="pulse-dot"></span>Code <b>${escapeHtml(codeLabel)}</b> captured — <b>${t("searching")}</b>`)
+    : `<span class="pulse-dot"></span><b>${t("searching")}</b>`;
+
+  setInlineScanStatus("progress", progressMsg, activeInlineBoxId);
+  showBanner("ok", progressMsg);
+  updateLiveCaptureButton();
+
+  if (scanTimeoutTimer) clearTimeout(scanTimeoutTimer);
+  scanTimeoutTimer = setTimeout(() => {
+    if (scanInProgress && activeScanReqId === reqId) {
+      scanInProgress = false;
+      updateLiveCaptureButton();
+      const timeoutTxt = LANG === "it"
+        ? "Nessuna risposta dal computer entro 15s: verifica che Archivio sia aperto e connesso."
+        : "No reply from computer within 15s: check that Archivio is open and connected.";
+      setInlineScanStatus("dup", timeoutTxt, activeInlineBoxId);
+      showBanner("dup", timeoutTxt);
+    }
+  }, 15000);
+
+  return reqId;
+}
+
+// ============================================================================
+// COMUNICAZIONE IBRIDA: REST DIRETTA (LAN / TUNNEL) + CLOUD RELAY (GITHUB PAGES)
+// Con frammentazione automatica <2.5KB per superare il limite 4KB di ntfy.sh
+// ============================================================================
+let cloudEventSource = null;
+let incomingChunkBuf = {};
+
+function initCloudRelayListener() {
+  if (cloudEventSource) {
+    try { cloudEventSource.close(); } catch (e) {}
+  }
+  try {
+    const es = new EventSource(`https://ntfy.sh/archivio_res_${ROOM}/sse`);
+    cloudEventSource = es;
+    es.onmessage = async (ev) => {
+      try {
+        const wrapper = JSON.parse(ev.data);
+        if (!wrapper) return;
+        let rawMsg = wrapper.message || "";
+        if (!rawMsg && wrapper.attachment && wrapper.attachment.url) {
+          const attResp = await fetch(wrapper.attachment.url);
+          if (attResp.ok) rawMsg = await attResp.text();
+        }
+        if (!rawMsg) return;
+        const parsed = JSON.parse(rawMsg);
+
+        if (parsed && typeof parsed._chunk === "number" && typeof parsed._total === "number" && parsed._id) {
+          const now = Date.now();
+          for (const k of Object.keys(incomingChunkBuf)) {
+            if (now - incomingChunkBuf[k].ts > 60000) delete incomingChunkBuf[k];
+          }
+          const cid = String(parsed._id);
+          if (!incomingChunkBuf[cid]) {
+            incomingChunkBuf[cid] = { ts: now, total: parsed._total, parts: {}, count: 0 };
+          }
+          const entry = incomingChunkBuf[cid];
+          entry.ts = now;
+          if (!(parsed._chunk in entry.parts)) {
+            entry.parts[parsed._chunk] = String(parsed._data || "");
+            entry.count += 1;
+          }
+          if (entry.count < entry.total) return;
+          let fullJson = "";
+          for (let i = 0; i < entry.total; i++) fullJson += (entry.parts[i] || "");
+          delete incomingChunkBuf[cid];
+          handleMacResponse(JSON.parse(fullJson));
+          return;
+        }
+        handleMacResponse(parsed);
+      } catch (e) {}
+    };
+    es.onerror = () => {
+      if (es.readyState === EventSource.CLOSED) {
+        setTimeout(() => initCloudRelayListener(), 2500);
+      }
+    };
+  } catch (e) {}
+}
+
+async function publishCloudRelayPayload(payload) {
+  const url = `https://ntfy.sh/archivio_req_${ROOM}`;
+  const rawStr = JSON.stringify(payload);
+  if (rawStr.length <= 2400) {
+    const resp = await fetch(url, { method: "POST", body: rawStr });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    return;
+  }
+  const sliceLen = 2100;
+  const total = Math.ceil(rawStr.length / sliceLen);
+  const msgId = Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+  for (let idx = 0; idx < total; idx++) {
+    const part = rawStr.slice(idx * sliceLen, (idx + 1) * sliceLen);
+    const pkt = JSON.stringify({ _id: msgId, _chunk: idx, _total: total, _data: part });
+    const resp = await fetch(url, { method: "POST", body: pkt });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  }
+}
+
+async function sendAction(payload) {
+  payload.room = ROOM;
+  payload.category = payload.category || CURRENT_CAT;
+  payload.auto_add = document.getElementById("chkBurst").checked;
+  payload.sticky_collection = document.getElementById("inStickyColl").value.trim();
+  payload.req_ts = Date.now();
+
+  if (!IS_STATIC_GHPAGES && DIRECT_API_AVAILABLE) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8500);
+    try {
+      const resp = await fetch("/api/action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: ctrl.signal
+      });
+      clearTimeout(timer);
+      if (resp.ok) {
+        const data = await resp.json();
+        handleMacResponse(data);
+        return;
+      }
+      if (resp.status === 404 || resp.status === 405) {
+        // Server statico (es. dominio custom GitHub Pages): commuta su Cloud Relay
+        DIRECT_API_AVAILABLE = false;
+        applyLang();
+      }
+    } catch (err) {
+      clearTimeout(timer);
+      // Non disattiviamo in modo permanente DIRECT_API_AVAILABLE su un singolo errore temporaneo:
+      // usiamo il Cloud Relay come paracadute per questa singola richiesta.
+    }
+  }
+
+  try {
+    await publishCloudRelayPayload(payload);
+  } catch (err) {
+    scanInProgress = false;
+    updateLiveCaptureButton();
+    const msg = "Errore di connessione / Connection error: " + err.message;
+    setInlineScanStatus("dup", msg);
+    showBanner("dup", msg);
+  }
+}
+
+let currentCandidateList = [];
+let currentEditions = {
+  publishers: [],
+  collections: [],
+  years: [],
+  publisher_years: {},
+  collections_by_pub: {},
+  collection_meta: {}
+};
+
+const DEFAULT_PUBLISHERS_BY_CAT = {
+  "Libri": [
+    "Mondadori", "Einaudi", "BUR Rizzoli", "Adelphi", "Feltrinelli",
+    "Garzanti", "Bompiani", "Rizzoli", "Newton Compton", "Laterza",
+    "UTET", "Sellerio", "Marsilio", "Giunti", "Il Mulino", "Longanesi", "TEA", "Guanda"
+  ],
+  "CD": [
+    "Sony Music", "Universal Music", "Warner Music", "EMI", "Columbia",
+    "RCA", "BMG Ricordi", "Decca", "Deutsche Grammophon", "Blue Note",
+    "ECM", "Virgin", "Atlantic", "Polydor", "Philips", "Verve", "Fonit Cetra"
+  ],
+  "Vinili": [
+    "EMI", "Columbia", "RCA Italiana", "CBS", "Fonit Cetra", "Ricordi",
+    "Polydor", "Philips", "Decca", "Deutsche Grammophon", "Blue Note",
+    "Atlantic", "Virgin", "Island", "Sire", "Verve", "Numero Uno", "CGD"
+  ]
+};
+
+const DEFAULT_COLLECTIONS_BY_CAT = {
+  "Libri": [
+    "Oscar Classici", "Oscar Mondadori", "I Meridiani", "BUR Classici greci e latini",
+    "Biblioteca Universale Rizzoli (BUR)", "ET Classici", "Supercoralli",
+    "Piccola Biblioteca Einaudi", "Universale Economica Feltrinelli",
+    "I grandi libri Garzanti", "Piccola Biblioteca Adelphi", "Biblioteca Adelphi",
+    "Tascabili Bompiani", "Grandi Tascabili Economici", "Economica Laterza",
+    "Classici UTET", "La memoria"
+  ],
+  "CD": [
+    "DeAgostini Jazz", "I Grandi del Jazz", "Sorrisi e Canzoni TV",
+    "La Grande Musica Classica", "Original Album Classics", "Masterpieces", "2CD Deluxe Edition"
+  ],
+  "Vinili": [
+    "Prima stampa 33 giri", "Ristampa 180g Audiophile", "Gatefold Edition",
+    "DeAgostini Jazz in Vinile", "DeAgostini Prog Italiano", "Blue Note Tone Poet", "Half-Speed Mastered"
+  ]
+};
+
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function normFold(s) {
+  return String(s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, "")
+    .trim();
+}
+
+function mergeUniqueStrings(primary, fallback) {
+  const out = [];
+  const seen = new Set();
+  for (const list of [primary || [], fallback || []]) {
+    for (const raw of list) {
+      const s = String(raw || "").trim();
+      if (!s) continue;
+      const k = s.toLowerCase();
+      if (!seen.has(k)) {
+        seen.add(k);
+        out.push(s);
+      }
+    }
+  }
+  return out;
+}
+
+function updateCurrentEditions(ed) {
+  const src = ed || {};
+  const hasSpecificPubs = Array.isArray(src.publishers) && src.publishers.length > 0;
+  const hasSpecificColls = Array.isArray(src.collections) && src.collections.length > 0;
+  const hasSpecificYears = Array.isArray(src.years) && src.years.length > 0;
+
+  currentEditions = {
+    publishers: hasSpecificPubs ? src.publishers.slice() : [],
+    collections: hasSpecificColls ? src.collections.slice() : [],
+    years: hasSpecificYears ? src.years.slice() : [],
+    publisher_years: src.publisher_years || {},
+    year_publishers: src.year_publishers || {},
+    year_collections: src.year_collections || {},
+    publisher_collections: src.publisher_collections || {},
+    collections_by_pub: src.collections_by_pub || {},
+    collection_meta: src.collection_meta || {},
+    is_single_edition: Boolean(src.is_single_edition || (hasSpecificPubs && src.publishers.length === 1 && (!hasSpecificYears || src.years.length <= 1)))
+  };
+
+  updateDropdownUIState();
+}
+
+function updateDropdownUIState() {
+  const btnPub = document.getElementById("btnComboPub");
+  const btnYear = document.getElementById("btnComboYear");
+  const btnColl = document.getElementById("btnComboColl");
+  const badge = document.getElementById("editionBadge");
+
+  const curPub = (document.getElementById("resPub") ? document.getElementById("resPub").value.trim() : "");
+  let pubsList = (currentEditions.publishers || []).slice();
+  if (curPub && !pubsList.includes(curPub)) pubsList.unshift(curPub);
+
+  const curYr = (document.getElementById("resYear") ? document.getElementById("resYear").value.trim() : "");
+  let yrsList = (currentEditions.years || []).slice();
+  if (curYr && !yrsList.includes(curYr)) yrsList.unshift(curYr);
+
+  const collsList = (currentEditions.collections || []);
+
+  const nPubs = pubsList.length;
+  const nYears = yrsList.length;
+  const nColls = collsList.length;
+
+  if (btnPub) btnPub.style.display = nPubs > 1 ? "block" : "none";
+  if (btnYear) btnYear.style.display = nYears > 1 ? "block" : "none";
+  if (btnColl) btnColl.style.display = nColls > 1 ? "block" : "none";
+
+  if (!badge) return;
+
+  const titleEl = document.getElementById("resTitle");
+  const hasTitle = Boolean(titleEl && titleEl.value.trim());
+
+  if (!hasTitle || (nPubs === 0 && nYears === 0 && nColls === 0)) {
+    badge.style.display = "none";
+    badge.textContent = "";
+    return;
+  }
+
+  if (currentEditions.is_single_edition || (nPubs <= 1 && nYears <= 1 && nColls <= 1)) {
+    badge.textContent = LANG === "it" ? "Edizione unica" : "Single edition";
+    badge.style.display = "inline-block";
+  } else {
+    let txt = "";
+    if (LANG === "it") {
+      if (CURRENT_CAT === "Libri") {
+        const collPart = nColls > 0 ? ` · ${nColls} collane` : "";
+        txt = `${nPubs} editori${collPart} · ${nYears} anni`;
+      } else if (CURRENT_CAT === "CD") {
+        txt = `${nPubs} etichette · ${nYears} edizioni`;
+      } else {
+        txt = `${nPubs} stampe · ${nYears} uscite`;
+      }
+    } else {
+      if (CURRENT_CAT === "Libri") {
+        const collPart = nColls > 0 ? ` · ${nColls} series` : "";
+        txt = `${nPubs} publishers${collPart} · ${nYears} years`;
+      } else if (CURRENT_CAT === "CD") {
+        txt = `${nPubs} labels · ${nYears} editions`;
+      } else {
+        txt = `${nPubs} pressings · ${nYears} releases`;
+      }
+    }
+    badge.textContent = txt;
+    badge.style.display = "inline-block";
+  }
+}
+
+function closeAllDropdowns() {
+  for (const id of ["ddMenuPub", "ddMenuYear", "ddMenuColl"]) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = "none";
+  }
+}
+
+function getDropdownItemsForKind(kind, filterText="") {
+  const q = String(filterText || "").trim().toLowerCase();
+  const curPub = (document.getElementById("resPub") ? document.getElementById("resPub").value.trim() : "");
+  let items = [];
+
+  if (kind === "pub") {
+    let pubs = (currentEditions.publishers || []).slice();
+    if (curPub && !pubs.includes(curPub)) {
+      pubs.unshift(curPub);
+    }
+    // Mostra editori predefiniti solo se non abbiamo alcuna edizione nota e il libro non è a edizione unica
+    if (pubs.length === 0 && !currentEditions.is_single_edition) {
+      pubs = (DEFAULT_PUBLISHERS_BY_CAT[CURRENT_CAT] || []).slice();
+    }
+    items = pubs.map((p) => {
+      let sub = "";
+      if (currentEditions.publisher_years && currentEditions.publisher_years[p]) {
+        sub = currentEditions.publisher_years[p];
+      } else if (currentEditions.publisher_collections && currentEditions.publisher_collections[p]) {
+        sub = currentEditions.publisher_collections[p];
+      }
+      return { value: p, sub: sub };
+    });
+  } else if (kind === "coll") {
+    let colls = [];
+    if (curPub && currentEditions.collections_by_pub && currentEditions.collections_by_pub[curPub]) {
+      colls = mergeUniqueStrings(currentEditions.collections_by_pub[curPub], currentEditions.collections);
+    } else {
+      colls = (currentEditions.collections || []).slice();
+      if (colls.length === 0 && !currentEditions.is_single_edition) {
+        colls = (DEFAULT_COLLECTIONS_BY_CAT[CURRENT_CAT] || []).slice();
+      }
+    }
+    items = colls.map((c) => {
+      const meta = (currentEditions.collection_meta && (currentEditions.collection_meta[c] || currentEditions.collection_meta[normFold(c)])) || {};
+      const subParts = [meta.publisher, meta.year].filter(Boolean);
+      return { value: c, sub: subParts.join(" • ") };
+    });
+  } else if (kind === "year") {
+    let years = (currentEditions.years || []).slice();
+    const pubYear = curPub && currentEditions.publisher_years ? currentEditions.publisher_years[curPub] : "";
+    if (pubYear && !years.includes(pubYear)) {
+      years.unshift(pubYear);
+    }
+    if (years.length === 0 && !currentEditions.is_single_edition) {
+      const curY = new Date().getFullYear();
+      for (let y = curY; y >= 1948; y -= 1) years.push(String(y));
+    }
+    items = years.map((y) => {
+      let sub = "";
+      if (currentEditions.year_publishers && currentEditions.year_publishers[y]) {
+        sub = currentEditions.year_publishers[y];
+      } else if (y === pubYear && curPub) {
+        sub = curPub;
+      }
+      return { value: y, sub: sub };
+    });
+  }
+
+  if (q) {
+    const filtered = items.filter((it) => it.value.toLowerCase().includes(q) || (it.sub && it.sub.toLowerCase().includes(q)));
+    if (filtered.length > 0) return filtered;
+  }
+  return items;
+}
+
+function renderDropdownMenu(kind, filterText="") {
+  const mapId = { pub: "ddMenuPub", year: "ddMenuYear", coll: "ddMenuColl" };
+  const menu = document.getElementById(mapId[kind]);
+  if (!menu) return;
+  const items = getDropdownItemsForKind(kind, filterText);
+  if (!items.length) {
+    menu.style.display = "none";
+    return;
+  }
+  const curVal = document.getElementById(kind === "pub" ? "resPub" : kind === "year" ? "resYear" : "resColl").value.trim();
+  menu.innerHTML = "";
+  for (const it of items.slice(0, 24)) {
+    const row = document.createElement("div");
+    row.className = "dropdown-item" + (it.value.toLowerCase() === curVal.toLowerCase() ? " selected" : "");
+    row.innerHTML = `<span>${escapeHtml(it.value)}</span>` + (it.sub ? `<span class="dropdown-sub">${escapeHtml(it.sub)}</span>` : "");
+    row.onclick = (ev) => {
+      ev.stopPropagation();
+      selectDropdownOption(kind, it.value);
+    };
+    menu.appendChild(row);
+  }
+  menu.style.display = "block";
+}
+
+function openDropdown(kind, fromFocus=false) {
+  const items = getDropdownItemsForKind(kind, "");
+  // Se c'è una sola opzione o nessuna, non aprire la tendina
+  if (items.length <= 1) {
+    closeAllDropdowns();
+    return;
+  }
+  closeAllDropdowns();
+  renderDropdownMenu(kind, "");
+}
+
+function toggleDropdown(kind) {
+  const mapId = { pub: "ddMenuPub", year: "ddMenuYear", coll: "ddMenuColl" };
+  const menu = document.getElementById(mapId[kind]);
+  if (menu && menu.style.display === "block") {
+    menu.style.display = "none";
+  } else {
+    openDropdown(kind, false);
+  }
+}
+
+let syncPreviewTimer = null;
+
+function scheduleSyncPreviewToMac(delayMs=160) {
+  if (syncPreviewTimer) clearTimeout(syncPreviewTimer);
+  syncPreviewTimer = setTimeout(() => {
+    const title = document.getElementById("resTitle").value.trim();
+    const author = document.getElementById("resAuthor").value.trim();
+    if (!title && !author) return;
+    const item = {
+      title: title,
+      author: author,
+      publisher: document.getElementById("resPub").value.trim(),
+      year: document.getElementById("resYear").value.trim(),
+      collection: document.getElementById("resColl").value.trim(),
+      isbn_or_barcode: CURRENT_CODE
+    };
+    sendAction({
+      action: "preview_item",
+      req_kind: "sync_preview",
+      item: item
+    });
+  }, delayMs);
+}
+
+function filterOpenDropdown(kind, val) {
+  renderDropdownMenu(kind, val);
+  scheduleSyncPreviewToMac(250);
+}
+
+function applyPublisherChanged(val) {
+  const pClean = String(val || "").trim();
+  if (!pClean) {
+    updateDropdownUIState();
+    return;
+  }
+  const pFold = normFold(pClean);
+
+  // 1) Risolvi anno associato all'editore
+  let resolvedYr = "";
+  if (currentEditions.publisher_years) {
+    if (currentEditions.publisher_years[pClean]) {
+      resolvedYr = currentEditions.publisher_years[pClean];
+    } else {
+      for (const [k, y] of Object.entries(currentEditions.publisher_years)) {
+        if (normFold(k) === pFold || normFold(k).includes(pFold) || pFold.includes(normFold(k))) {
+          resolvedYr = y;
+          break;
+        }
+      }
+    }
+  }
+  if (!resolvedYr && currentEditions.collection_meta) {
+    for (const meta of Object.values(currentEditions.collection_meta)) {
+      if (meta && meta.publisher) {
+        const mpf = normFold(meta.publisher);
+        if (mpf === pFold || mpf.includes(pFold) || pFold.includes(mpf)) {
+          if (meta.year) { resolvedYr = meta.year; break; }
+        }
+      }
+    }
+  }
+  if (resolvedYr) {
+    const yrEl = document.getElementById("resYear");
+    if (yrEl) yrEl.value = resolvedYr;
+  }
+
+  // 2) Risolvi collana specifica per questo editore
+  let resolvedColl = "";
+  if (currentEditions.publisher_collections) {
+    if (currentEditions.publisher_collections[pClean]) {
+      resolvedColl = currentEditions.publisher_collections[pClean];
+    } else {
+      for (const [k, c] of Object.entries(currentEditions.publisher_collections)) {
+        if (normFold(k) === pFold || normFold(k).includes(pFold) || pFold.includes(normFold(k))) {
+          resolvedColl = c;
+          break;
+        }
+      }
+    }
+  }
+  if (!resolvedColl && currentEditions.collections_by_pub && currentEditions.collections_by_pub[pClean]) {
+    const pubColls = currentEditions.collections_by_pub[pClean];
+    if (pubColls.length === 1) resolvedColl = pubColls[0];
+  }
+
+  // 3) Verifica collana attuale: se appartiene a un altro editore o è incompatibile, la toglie
+  const collEl = document.getElementById("resColl");
+  const curColl = collEl ? collEl.value.trim() : "";
+  let shouldClearColl = false;
+  if (curColl) {
+    let collPub = "";
+    if (currentEditions.collection_meta) {
+      const meta = currentEditions.collection_meta[curColl] || currentEditions.collection_meta[normFold(curColl)];
+      if (meta && meta.publisher) collPub = meta.publisher;
+    }
+    if (collPub) {
+      const cf = normFold(collPub);
+      if (cf !== pFold && !cf.includes(pFold) && !pFold.includes(cf)) {
+        shouldClearColl = true;
+      }
+    } else {
+      const clow = curColl.toLowerCase();
+      const plow = pClean.toLowerCase();
+      const known = ["mondadori", "einaudi", "adelphi", "rizzoli", "feltrinelli", "bompiani", "garzanti", "laterza", "utet", "sellerio", "newton compton", "harpercollins"];
+      for (const k of known) {
+        if (clow.includes(k) && !plow.includes(k)) {
+          shouldClearColl = true;
+          break;
+        }
+      }
+    }
+  }
+
+  if (collEl) {
+    if (shouldClearColl) {
+      collEl.value = resolvedColl || "";
+    } else if (resolvedColl && !curColl) {
+      collEl.value = resolvedColl;
+    }
+  }
+
+  updateDropdownUIState();
+  scheduleSyncPreviewToMac(60);
+}
+
+function applyYearChanged(val) {
+  const yClean = (String(val || "").match(/\b(19\d\d|20\d\d)\b/) || [])[0] || String(val || "").trim();
+  if (!yClean || yClean.length < 4) return;
+
+  // 1) Risolvi editore per quest'anno
+  let resolvedPub = "";
+  if (currentEditions.year_publishers && currentEditions.year_publishers[yClean]) {
+    resolvedPub = currentEditions.year_publishers[yClean];
+  }
+  if (!resolvedPub && currentEditions.publisher_years) {
+    for (const [p, y] of Object.entries(currentEditions.publisher_years)) {
+      if (y === yClean) {
+        resolvedPub = p;
+        break;
+      }
+    }
+  }
+  if (!resolvedPub && currentEditions.collection_meta) {
+    for (const meta of Object.values(currentEditions.collection_meta)) {
+      if (meta && meta.year === yClean && meta.publisher) {
+        resolvedPub = meta.publisher;
+        break;
+      }
+    }
+  }
+  if (resolvedPub) {
+    const pubEl = document.getElementById("resPub");
+    if (pubEl) pubEl.value = resolvedPub;
+  }
+
+  // 2) Risolvi collana per quest'anno
+  let resolvedColl = "";
+  if (currentEditions.year_collections && currentEditions.year_collections[yClean]) {
+    resolvedColl = currentEditions.year_collections[yClean];
+  }
+  if (!resolvedColl && currentEditions.collection_meta) {
+    for (const [c, meta] of Object.entries(currentEditions.collection_meta)) {
+      if (meta && meta.year === yClean) {
+        resolvedColl = c;
+        break;
+      }
+    }
+  }
+
+  // 3) Verifica collana attuale: se appartiene a un altro anno o editore diverso, la toglie
+  const collEl = document.getElementById("resColl");
+  const curColl = collEl ? collEl.value.trim() : "";
+  let shouldClearColl = false;
+  if (curColl) {
+    let meta = null;
+    if (currentEditions.collection_meta) {
+      meta = currentEditions.collection_meta[curColl] || currentEditions.collection_meta[normFold(curColl)];
+    }
+    if (meta) {
+      if (meta.year && meta.year !== yClean) {
+        shouldClearColl = true;
+      } else if (resolvedPub && meta.publisher) {
+        const mpf = normFold(meta.publisher);
+        const rpf = normFold(resolvedPub);
+        if (mpf !== rpf && !mpf.includes(rpf) && !rpf.includes(mpf)) {
+          shouldClearColl = true;
+        }
+      }
+    }
+  }
+
+  if (collEl) {
+    if (shouldClearColl) {
+      collEl.value = resolvedColl || "";
+    } else if (resolvedColl && !curColl) {
+      collEl.value = resolvedColl;
+    }
+  }
+
+  updateDropdownUIState();
+  scheduleSyncPreviewToMac(60);
+}
+
+function applyCollectionChanged(val) {
+  const cClean = String(val || "").trim();
+  if (!cClean) return;
+
+  let meta = null;
+  if (currentEditions.collection_meta) {
+    meta = currentEditions.collection_meta[cClean] || currentEditions.collection_meta[normFold(cClean)];
+  }
+  if (meta) {
+    if (meta.publisher) {
+      const pubEl = document.getElementById("resPub");
+      if (pubEl) pubEl.value = meta.publisher;
+    }
+    if (meta.year) {
+      const yrEl = document.getElementById("resYear");
+      if (yrEl) yrEl.value = meta.year;
+    }
+  }
+  updateDropdownUIState();
+  scheduleSyncPreviewToMac(60);
+}
+
+function onPubInput(val) {
+  filterOpenDropdown('pub', val);
+  const clean = String(val || "").trim();
+  if (clean && currentEditions.publishers) {
+    const pFold = normFold(clean);
+    for (const p of currentEditions.publishers) {
+      if (normFold(p) === pFold) {
+        applyPublisherChanged(clean);
+        break;
+      }
+    }
+  }
+}
+
+function onYearInput(val) {
+  filterOpenDropdown('year', val);
+  const clean = String(val || "").trim();
+  if (clean.length === 4 && /^\d{4}$/.test(clean)) {
+    applyYearChanged(clean);
+  }
+}
+
+function selectDropdownOption(kind, val) {
+  if (kind === "pub") {
+    document.getElementById("resPub").value = val;
+    applyPublisherChanged(val);
+  } else if (kind === "year") {
+    document.getElementById("resYear").value = val;
+    applyYearChanged(val);
+  } else if (kind === "coll") {
+    document.getElementById("resColl").value = val;
+    applyCollectionChanged(val);
+  }
+  closeAllDropdowns();
+  scheduleSyncPreviewToMac(40);
+}
+
+document.addEventListener("click", (ev) => {
+  if (!ev.target.closest(".combo-wrap") && !ev.target.closest(".dropdown-menu")) {
+    closeAllDropdowns();
+  }
+});
+
+// ============================================================================
+// AUTOCOMPLETAMENTO LIVE MENTRE SI SCRIVE (ANCHE SU GITHUB PAGES VIA CLOUD)
+// ============================================================================
+let liveQueryTimer = null;
+let liveQuerySeq = 0;
+let liveQueryBoxMap = {};
+
+function hideSuggestionBox(boxId) {
+  const el = document.getElementById(boxId);
+  if (el) {
+    el.innerHTML = "";
+    el.style.display = "none";
+  }
+}
+
+function hideAllSuggestionBoxes() {
+  hideSuggestionBox("ocrCandidates");
+  hideSuggestionBox("fieldSuggestions");
+}
+
+function onLiveQueryInput(rawVal, fieldMode, targetBoxId) {
+  const q = String(rawVal || "").trim();
+  if (liveQueryTimer) clearTimeout(liveQueryTimer);
+  if (q.length < 2) {
+    hideSuggestionBox(targetBoxId);
+    return;
+  }
+  const mySeq = ++liveQuerySeq;
+  liveQueryBoxMap[mySeq] = targetBoxId || "fieldSuggestions";
+  const debounceMs = (!IS_STATIC_GHPAGES && DIRECT_API_AVAILABLE) ? 180 : 280;
+  liveQueryTimer = setTimeout(() => {
+    sendAction({
+      action: "autocomplete",
+      req_kind: `autocomplete:${mySeq}:${targetBoxId || "fieldSuggestions"}`,
+      query: q,
+      field_mode: fieldMode || "both"
+    });
+  }, debounceMs);
+}
+
+function fetchEditionsForWork(title, author) {
+  if (!title) return;
+  sendAction({
+    action: "fetch_editions",
+    req_kind: "fetch_editions",
+    title: title,
+    author: author || ""
+  });
+}
+
+function renderCompactSuggestions(candidates, boxId="ocrCandidates", autoFillFirst=false) {
+  const box = document.getElementById(boxId);
+  if (!box) return;
+  box.innerHTML = "";
+  const list = (candidates || []).slice(0, 4);
+  if (list.length === 0) {
+    box.style.display = "none";
+    return;
+  }
+
+  const hdr = document.createElement("div");
+  hdr.className = "sug-header";
+  hdr.innerHTML = `<span>${LANG === "it" ? "Suggerimenti (tocca per compilare):" : "Suggestions (tap to fill):"}</span>` +
+                  `<button type="button" class="sug-close" onclick="hideSuggestionBox('${boxId}')">✕ ${LANG === "it" ? "Chiudi" : "Close"}</button>`;
+  box.appendChild(hdr);
+
+  for (const c of list) {
+    const div = document.createElement("div");
+    div.className = "sug-item";
+    const meta = [c.author, c.publisher, c.year, c.collection].filter(Boolean).join(" • ");
+    div.innerHTML = `<strong>${escapeHtml(c.title)}</strong><span>${escapeHtml(meta)}</span>`;
+    div.onclick = () => selectCandidateItem(c);
+    box.appendChild(div);
+  }
+  box.style.display = "flex";
+}
+
+function handleMacResponse(data) {
+  if (!data) return;
+  const rk = String(data.req_kind || "");
+
+  // 1. Risposte asincrone di autocompletamento mentre si digita
+  if (data.status === "autocomplete" || rk.startsWith("autocomplete:")) {
+    const parts = rk.split(":");
+    const seqNum = parts.length >= 2 ? parseInt(parts[1], 10) : liveQuerySeq;
+    const boxId = parts.length >= 3 ? parts[2] : "fieldSuggestions";
+    if (seqNum === liveQuerySeq && Array.isArray(data.candidates)) {
+      renderCompactSuggestions(data.candidates, boxId, false);
+    }
+    return;
+  }
+
+  // 2. Risposte asincrone di arricchimento edizioni (case editrici, collane, anni)
+  if (data.status === "editions_only" || rk === "fetch_editions") {
+    if (data.editions) {
+      updateCurrentEditions(data.editions);
+      const curPub = document.getElementById("resPub").value.trim();
+      const curYear = document.getElementById("resYear").value.trim();
+      if (!curPub && currentEditions.publishers.length > 0) {
+        document.getElementById("resPub").value = currentEditions.publishers[0];
+      }
+      const activePub = document.getElementById("resPub").value.trim();
+      if (!curYear && activePub && currentEditions.publisher_years[activePub]) {
+        document.getElementById("resYear").value = currentEditions.publisher_years[activePub];
+      }
+    }
+    return;
+  }
+
+  // 3. Sincronizzazione silenziosa anteprima verso il Mac (senza suoni né sovrascritture)
+  if (rk === "sync_preview") {
+    if (data.editions) updateCurrentEditions(data.editions);
+    if (data.is_duplicate) {
+      showBanner("dup", t("dupWarn", { cat: CURRENT_CAT }));
+    }
+    return;
+  }
+
+  // Ignora eventuali risposte vecchie di una scansione precedente superata da una nuova
+  if (typeof data.req_id === "number" && data.req_id < activeScanReqId) {
+    return;
+  }
+
+  if (scanTimeoutTimer) {
+    clearTimeout(scanTimeoutTimer);
+    scanTimeoutTimer = null;
+  }
+  scanInProgress = false;
+  updateLiveCaptureButton();
+
+  if (data.category && data.category !== CURRENT_CAT) {
+    setCategory(data.category, false);
+  }
+  if (data.editions) {
+    updateCurrentEditions(data.editions);
+  }
+  if (data.status === "issn_warning") {
+    beepAndVibrate(false);
+    const msg = t("issnWarn", { code: data.code || "977..." });
+    setInlineScanStatus("issn", msg, "coverInlineStatus");
+    showBanner("issn", msg);
+    if (data.collection) {
+      document.getElementById("resColl").value = data.collection;
+      document.getElementById("inStickyColl").value = data.collection;
+    }
+    switchTab("cover");
+    return;
+  }
+  if (data.status === "undone") {
+    beepAndVibrate(true);
+    setInlineScanStatus("ok", t("undoneOk"));
+    showBanner("ok", t("undoneOk"));
+    return;
+  }
+  if (data.candidates && Array.isArray(data.candidates)) {
+    currentCandidateList = data.candidates;
+    if (document.getElementById("paneCover").style.display !== "none") {
+      renderCompactSuggestions(data.candidates, "ocrCandidates", false);
+    }
+    if (data.multi_isbn && data.candidates.length > 1) {
+      document.getElementById("multiIsbnBox").style.display = "block";
+      document.getElementById("inFilterCandidates").value = "";
+      renderBarcodeCandidates(data.candidates);
+    } else {
+      document.getElementById("multiIsbnBox").style.display = "none";
+    }
+  } else {
+    document.getElementById("multiIsbnBox").style.display = "none";
+  }
+
+  if (data.item) {
+    const it = data.item;
+    CURRENT_CODE = it.isbn_or_barcode || data.code || "";
+    document.getElementById("resTitle").value = it.title || "";
+    document.getElementById("resAuthor").value = it.author || "";
+    document.getElementById("resPub").value = it.publisher || "";
+    document.getElementById("resYear").value = it.year || "";
+    const sticky = document.getElementById("inStickyColl").value.trim();
+    document.getElementById("resColl").value = it.collection || sticky || "";
+
+    if (!data.added && it.title) {
+      fetchEditionsForWork(it.title, it.author || "");
+    }
+    if (typeof updateDropdownUIState === "function") updateDropdownUIState();
+
+    const safeTitle = escapeHtml(it.title || "");
+    const safeAuthor = escapeHtml(it.author || "");
+    const summaryTitle = `<b>${safeTitle}</b>` + (safeAuthor ? ` — ${safeAuthor}` : "");
+    if (data.added) {
+      beepAndVibrate(true);
+      const addedHtml = t("addedOk", { cat: escapeHtml(CURRENT_CAT), title: safeTitle, author: safeAuthor });
+      setInlineScanStatus("ok", addedHtml);
+      showBanner("ok", addedHtml);
+    } else if (data.multi_isbn && data.candidates && data.candidates.length > 1) {
+      beepAndVibrate(false);
+      const multiHtml = t("multiIsbnWarn", { n: data.candidates.length });
+      setInlineScanStatus("issn", multiHtml);
+      showBanner("issn", multiHtml);
+    } else if (data.is_duplicate) {
+      beepAndVibrate(false);
+      const dupHtml = t("dupWarn", { cat: escapeHtml(CURRENT_CAT) });
+      setInlineScanStatus("dup", `${dupHtml}<br>${summaryTitle}`);
+      showBanner("dup", dupHtml);
+    } else {
+      beepAndVibrate(true);
+      const foundHtml = t("foundOk", { src: escapeHtml(data.source || "Online") });
+      setInlineScanStatus("ok", `✓ ${summaryTitle}`);
+      showBanner("ok", foundHtml);
+    }
+  } else if (data.status === "not_found") {
+    beepAndVibrate(false);
+    const nfHtml = t("notFound", { code: escapeHtml(data.code || "") });
+    setInlineScanStatus("issn", nfHtml);
+    showBanner("issn", nfHtml);
+  }
+}
+
+function selectCandidateItem(c) {
+  hideAllSuggestionBoxes();
+  document.getElementById("resTitle").value = c.title || "";
+  document.getElementById("resAuthor").value = c.author || "";
+  document.getElementById("resPub").value = c.publisher || "";
+  document.getElementById("resYear").value = c.year || "";
+  const sticky = document.getElementById("inStickyColl").value.trim();
+  document.getElementById("resColl").value = c.collection || sticky || "";
+  if (typeof updateDropdownUIState === "function") updateDropdownUIState();
+  playStudioSound("tap");
+  showBanner("ok", t("foundOk", { src: c.publisher || "Catalogo" }));
+
+  // Scarica subito tutte le case editrici, collane e anni per questo libro/disco
+  fetchEditionsForWork(c.title || "", c.author || "");
+
+  sendAction({
+    action: "preview_item",
+    req_kind: "sync_preview",
+    item: {
+      title: c.title || "",
+      author: c.author || "",
+      publisher: c.publisher || "",
+      year: c.year || "",
+      collection: c.collection || sticky || ""
+    }
+  });
+  if (document.getElementById("chkBurst").checked) {
+    confirmAddItem();
+  }
+}
+
+function renderBarcodeCandidates(list) {
+  const box = document.getElementById("barcodeCandidates");
+  box.innerHTML = "";
+  for (const c of list) {
+    const div = document.createElement("div");
+    div.className = "sug-item";
+    const meta = [c.author, c.publisher, c.year, c.collection].filter(Boolean).join(" • ");
+    div.innerHTML = `<strong>${escapeHtml(c.title)}</strong><span>${escapeHtml(meta)}</span>`;
+    div.onclick = () => selectCandidateItem(c);
+    box.appendChild(div);
+  }
+}
+
+function filterCandidateList() {
+  const q = (document.getElementById("inFilterCandidates").value || "").trim().toLowerCase();
+  if (!q) {
+    renderBarcodeCandidates(currentCandidateList);
+    return;
+  }
+  const filtered = currentCandidateList.filter(
+    (c) => (c.title || "").toLowerCase().includes(q) || (c.author || "").toLowerCase().includes(q)
+  );
+  renderBarcodeCandidates(filtered);
+}
+
+// ============================================================================
+// SCANSIONE CODICE A BARRE (LIVE VIDEO SEMPRE ATTIVO + ACQUISIZIONE A TOCCO)
+// ============================================================================
+function normalizeScannedCode(raw) {
+  let digits = String(raw || "").replace(/[^0-9Xx]/g, "").toUpperCase();
+  // Se il lettore legge EAN-13 + supplemento 5 cifre del prezzo (18 cifre), estrae le prime 13
+  if (digits.length === 18 && (digits.startsWith("978") || digits.startsWith("979") || digits.startsWith("977"))) {
+    digits = digits.slice(0, 13);
+  }
+  return digits;
+}
+
+let pendingLiveCode = "";
+let justCapturedCode = "";
+let justCapturedTime = 0;
+
+function onBarcodeDetected(rawCode, originMode="live") {
+  const code = normalizeScannedCode(rawCode);
+  if (code.length < 8) return;
+  const now = Date.now();
+  if (code === lastScannedCode && now - lastScannedTime < 900 && scanInProgress) return;
+  lastScannedCode = code;
+  lastScannedTime = now;
+
+  document.getElementById("inManualCode").value = code;
+  const reqId = beginNewScan(code, originMode);
+  sendAction({ action: "scan_barcode", code: code, req_id: reqId });
+}
+
+function updateLiveCaptureButton() {
+  const btn = document.getElementById("btnCaptureLive");
+  if (!btn) return;
+  if (!liveRunning) {
+    btn.style.display = "none";
+    return;
+  }
+  btn.style.display = "flex";
+  if (pendingLiveCode) {
+    btn.className = "btn btn-success";
+    btn.innerHTML = LANG === "it"
+      ? `Tocca per acquisire: <b>${escapeHtml(pendingLiveCode)}</b>`
+      : `Tap to capture: <b>${escapeHtml(pendingLiveCode)}</b>`;
+  } else if (scanInProgress && justCapturedCode) {
+    btn.className = "btn btn-primary";
+    btn.innerHTML = LANG === "it"
+      ? `✓ Acquisito <b>${escapeHtml(justCapturedCode)}</b> · ${t("searching")}`
+      : `✓ Captured <b>${escapeHtml(justCapturedCode)}</b> · ${t("searching")}`;
+  } else if (justCapturedCode && (Date.now() - justCapturedTime < 1800)) {
+    btn.className = "btn btn-primary";
+    btn.innerHTML = LANG === "it"
+      ? `✓ Acquisito <b>${escapeHtml(justCapturedCode)}</b> — Inquadra il prossimo e tocca`
+      : `✓ Captured <b>${escapeHtml(justCapturedCode)}</b> — Aim at next and tap`;
+  } else {
+    btn.className = "btn btn-primary";
+    btn.innerHTML = LANG === "it"
+      ? "Inquadra il codice e tocca qui per acquisire"
+      : "Aim at barcode and tap here to capture";
+  }
+}
+
+function onLiveFrameDecoded(rawText) {
+  const code = normalizeScannedCode(rawText);
+  if (code.length < 8) return;
+  // Evita di ri-agganciare nello stesso istante il codice appena acquisito col tocco
+  if (code === justCapturedCode && (Date.now() - justCapturedTime < 1800)) {
+    return;
+  }
+  if (code !== pendingLiveCode) {
+    pendingLiveCode = code;
+    try { if (navigator.vibrate) navigator.vibrate(20); } catch (e) {}
+    updateLiveCaptureButton();
+  }
+}
+
+async function captureLiveBarcodeNow() {
+  if (!liveRunning) return;
+  playStudioSound("tap");
+  const captured = pendingLiveCode;
+  // Mantiene SEMPRE aperto lo scanner live dopo il tocco, così l'utente può passare
+  // subito al libro/disco successivo senza dover riavviare la fotocamera!
+  if (captured && captured.length >= 8) {
+    justCapturedCode = captured;
+    justCapturedTime = Date.now();
+    pendingLiveCode = "";
+    onBarcodeDetected(captured, "live");
+    setTimeout(() => { if (liveRunning) updateLiveCaptureButton(); }, 1850);
+    return;
+  }
+  // Altrimenti cattura il fotogramma attuale dal flusso video <video> senza chiudere lo stream live
+  const videoEl = document.querySelector("#reader video");
+  if (videoEl && videoEl.videoWidth > 0) {
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = videoEl.videoWidth;
+      canvas.height = videoEl.videoHeight;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+      const b64 = canvas.toDataURL("image/jpeg", 0.84);
+      const reqId = beginNewScan(LANG === "it" ? "fotogramma live" : "live frame", "live");
+      await sendAction({ action: "decode_photo_barcode", image_b64: b64, req_id: reqId });
+      return;
+    } catch (e) {}
+  }
+}
+
+async function stopLiveScanner() {
+  if (liveRunning && html5QrCode) {
+    try { await html5QrCode.stop(); } catch (e) {}
+  }
+  liveRunning = false;
+  torchOn = false;
+  const torchBtn = document.getElementById("btnTorch");
+  if (torchBtn) torchBtn.classList.remove("active");
+  pendingLiveCode = "";
+  justCapturedCode = "";
+  document.getElementById("camPlaceholder").style.display = "block";
+  updateLiveCaptureButton();
+  applyLang();
+}
+
+async function toggleLiveScanner() {
+  getUnlockedAudioContext();
+  if (liveRunning) {
+    await stopLiveScanner();
+    return;
+  }
+
+  if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    return;
+  }
+
+  document.getElementById("camPlaceholder").style.display = "none";
+  pendingLiveCode = "";
+  justCapturedCode = "";
+
+  if (!html5QrCode) {
+    html5QrCode = new Html5Qrcode("reader");
+  }
+  try {
+    await html5QrCode.start(
+      { facingMode: "environment" },
+      {
+        fps: 15,
+        qrbox: { width: 260, height: 120 },
+        aspectRatio: 1.6
+      },
+      (decodedText) => onLiveFrameDecoded(decodedText),
+      () => {}
+    );
+    liveRunning = true;
+    updateLiveCaptureButton();
+    applyLang();
+    setTimeout(() => setCameraZoom(currentZoom), 300);
+  } catch (err) {
+    document.getElementById("camPlaceholder").style.display = "block";
+    document.getElementById("camPlaceholder").innerHTML =
+      "Impossibile avviare il flusso live (" + escapeHtml(err.message || err) + ").<br>Usa il pulsante <b>«Fotografa Codice a Barre»</b> qui sotto.";
+  }
+}
+
+function setCameraZoom(z) {
+  currentZoom = z;
+  for (const [id, val] of [["z1", 1.0], ["z15", 1.5], ["z2", 2.0]]) {
+    document.getElementById(id).classList.toggle("active", val === z);
+  }
+  if (!liveRunning || !html5QrCode) return;
+  try {
+    html5QrCode.applyVideoConstraints({ advanced: [{ zoom: z }] });
+  } catch (e) {}
+}
+
+function toggleTorch() {
+  if (!liveRunning || !html5QrCode) return;
+  torchOn = !torchOn;
+  document.getElementById("btnTorch").classList.toggle("active", torchOn);
+  try {
+    html5QrCode.applyVideoConstraints({ advanced: [{ torch: torchOn }] });
+  } catch (e) {}
+}
+
+function submitManualCode() {
+  const raw = document.getElementById("inManualCode").value.trim();
+  if (!raw) return;
+  playStudioSound("tap");
+  lastScannedCode = "";
+  onBarcodeDetected(raw, "manual");
+}
+
+function submitManualTextSearch() {
+  const q = document.getElementById("inManualQuery").value.trim();
+  if (!q) return;
+  playStudioSound("tap");
+  if (liveQueryTimer) clearTimeout(liveQueryTimer);
+  const reqId = beginNewScan(`«${q}»`, "cover");
+  sendAction({ action: "search_text", query: q, req_id: reqId });
+}
+
+// ============================================================================
+// SCATTO FOTO AD ALTA RISOLUZIONE (BARCODE ANTIRIFLESSO + OCR COPERTINA VELOCE)
+// ============================================================================
+function compressImageToBase64(file, maxDim=1200, quality=0.82) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
+          else { w = Math.round(w * maxDim / h); h = maxDim; }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function onPhotoSelected(event, mode) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  playStudioSound("tap");
+
+  // Se il browser ha BarcodeDetector nativo e siamo in modalità barcode, proviamo subito in locale
+  if (mode === "barcode" && "BarcodeDetector" in window) {
+    try {
+      const bmp = await createImageBitmap(file);
+      const detector = new BarcodeDetector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128"] });
+      const codes = await detector.detect(bmp);
+      if (codes && codes.length > 0 && codes[0].rawValue) {
+        onBarcodeDetected(codes[0].rawValue, "manual");
+        event.target.value = "";
+        return;
+      }
+    } catch (e) {}
+  }
+
+  const reqId = beginNewScan(
+    mode === "barcode" ? (LANG === "it" ? "foto codice" : "barcode photo") : (LANG === "it" ? "foto copertina" : "cover photo"),
+    mode === "ocr" ? "cover" : "manual"
+  );
+
+  try {
+    const isDirect = !IS_STATIC_GHPAGES && DIRECT_API_AVAILABLE;
+    const maxDim = mode === "ocr" ? (isDirect ? 1600 : 1400) : (isDirect ? 1600 : 1200);
+    const qual = mode === "ocr" ? (isDirect ? 0.88 : 0.82) : (isDirect ? 0.86 : 0.78);
+    const b64 = await compressImageToBase64(file, maxDim, qual);
+    await sendAction({
+      action: mode === "barcode" ? "decode_photo_barcode" : "decode_photo_ocr",
+      image_b64: b64,
+      req_id: reqId
+    });
+  } catch (err) {
+    scanInProgress = false;
+    const errTxt = "Errore lettura immagine: " + err.message;
+    setInlineScanStatus("dup", errTxt);
+    showBanner("dup", errTxt);
+  }
+  event.target.value = "";
+}
+
+function confirmAddItem() {
+  hideAllSuggestionBoxes();
+  closeAllDropdowns();
+  const item = {
+    title: document.getElementById("resTitle").value.trim(),
+    author: document.getElementById("resAuthor").value.trim(),
+    publisher: document.getElementById("resPub").value.trim(),
+    year: document.getElementById("resYear").value.trim(),
+    collection: document.getElementById("resColl").value.trim(),
+    isbn_or_barcode: CURRENT_CODE
+  };
+  if (!item.title || !item.author) {
+    beepAndVibrate(false);
+    showBanner("dup", LANG === "it" ? "Inserisci almeno Titolo e Autore/Artista." : "Please enter Title and Author/Artist.");
+    return;
+  }
+  sendAction({ action: "add_item", item: item });
+}
+
+function undoLastRemote() {
+  sendAction({ action: "undo_last" });
+}
+
+// In modalità Rete Locale HTTP (non-HTTPS), i browser mobili disabilitano lo streaming Live:
+// nascondiamo completamente il riquadro Live lasciando lo Scatto Foto Antiriflesso e la ricerca manuale.
+if (!window.isSecureContext) {
+  const liveSec = document.getElementById("liveScannerSection");
+  if (liveSec) liveSec.style.display = "none";
+}
+
+setCategory(CURRENT_CAT, false);
+updateCurrentEditions({});
+applyLang();
+initCloudRelayListener();
+</script>
+</body>
+</html>
