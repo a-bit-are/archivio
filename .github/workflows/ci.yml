@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+
+      - name: Install Linux Qt offscreen libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libxcb-cursor0 libxkbcommon-x11-0 libegl1 libgl1 \
+            tesseract-ocr tesseract-ocr-ita tesseract-ocr-eng
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify scanner.html sync & compile Python modules
+        run: |
+          python -m compileall -q app/archivio
+          python -c "assert open('docs/scanner.html', 'rb').read() == open('app/archivio/data/scanner.html', 'rb').read(), 'scanner.html out of sync'"
+
+      - name: Run Python unit test suite
+        env:
+          QT_QPA_PLATFORM: offscreen
+          PYTHONPATH: app
+        run: python -W default -m unittest discover -s tests -p "test_*.py"
+
+      - name: Run Scanner JS tests
+        run: node --test tests/test_scanner_js.mjs
+
+      - name: Verify macOS Swift Vision helper compiles
+        if: runner.os == 'macOS'
+        run: swiftc -O tools/vision_scanner.swift -o /tmp/vision_scanner_ci
